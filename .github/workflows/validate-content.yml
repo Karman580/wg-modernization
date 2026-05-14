@@ -1,0 +1,42 @@
+name: Validate framework frontmatter
+
+on:
+  pull_request:
+    paths:
+      - 'framework/**'
+
+jobs:
+  frontmatter:
+    name: Check frontmatter schema
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install python-frontmatter==1.1.0
+
+      - name: Collect changed framework files
+        id: changed
+        run: |
+          files=$(git diff --name-only --diff-filter=AM \
+            "origin/${{ github.base_ref }}...HEAD" -- 'framework/' \
+            | grep '\.md$' | tr '\n' ' ')
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+
+      - name: Validate frontmatter
+        if: steps.changed.outputs.files != ''
+        run: |
+          python .github/scripts/validate_frontmatter.py ${{ steps.changed.outputs.files }}
+
+      - name: No framework files changed
+        if: steps.changed.outputs.files == ''
+        run: echo "No framework/*.md files changed — skipping validation."
